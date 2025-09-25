@@ -26,7 +26,7 @@ We're still early in our journey, but with your feedback, we're rapidly iteratin
 
 - **Linux**
 - **macOS**
-- **Windows** (via WSL. Native shell support is experimental)
+- **Windows** (experimental)
 
 ### Prerequisites
 
