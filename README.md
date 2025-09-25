@@ -57,6 +57,10 @@ If you're not currently logged in to GitHub, you'll be prompted to use the `/log
 
 Launch `copilot` in a folder that contains code you want to work with. 
 
+By default, `copilot` utilizes Claude Sonnet 4. We also support GPT-5 via an environment variable. Run `export COPILOT_MODEL=gpt-5 && copilot` to launch in GPT-5 mode.
+
+Each time you submit a prompt to Copilot CLI, your monthly quota of premium requests is reduced by one. For information about premium requests, see [About premium requests](https://docs.github.com/copilot/managing-copilot/monitoring-usage-and-entitlements/about-premium-requests)
+
 For more information about how to use the Copilot CLI, see [our official documentation](https://docs.github.com/copilot/concepts/agents/about-copilot-cli)
 
 
