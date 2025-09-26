@@ -54,6 +54,14 @@ On first launch, you'll be greeted with our adorable animated banner! If you'd l
 
 If you're not currently logged in to GitHub, you'll be prompted to use the `/login` slash command. Enter this command and follow the on-screen instructions to authenticate.
 
+#### Authenticate with a Personal Access Token (PAT)
+
+You can also authenticate using a fine-graned PAT with the "Copilot Rrequests" permission enabled.
+
+1. Visit https://github.com/settings/personal-access-tokens/new
+2. Under "Permissions," click "add permissions" and select "Copilot Requests"
+3. Generate your token
+4. Add the token to your environment via the environment variable `GH_TOKEN` or `GITHUB_TOKEN` (in order of precedence)
 
 ### Using the CLI
 
