@@ -1,3 +1,7 @@
+## 0.0.330 - 2025-09-29
+
+- Changed the default model back to Sonnet 4 since Sonnet 4.5 hasn't rolled out to all users yet. Sonnet 4.5 is still available from the `/model` slash command
+
 ## 0.0.329 - 2025-09-29
 
 - Added support for [Claude Sonnet 4.5](https://github.blog/changelog/2025-09-29-anthropic-claude-sonnet-4-5-is-in-public-preview-for-github-copilot/) and made it the default model
