@@ -16,7 +16,7 @@ jobs:
       GH_REPO: ${{ github.repository }}
       NUMBER: ${{ github.event.issue.number }}
       BODY: >
-        Thank you for your issue! We have categorized it as a enhancement,
+        Thank you for your issue! We have categorized it as an enhancement,
         and it has been added to our backlog. In doing so, **we are not
         committing to implementing this feature at this time**, but, we will
         consider it for future releases based on community feedback and our own
