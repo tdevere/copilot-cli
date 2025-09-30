@@ -1,4 +1,4 @@
-name: Add feature-request comment
+name: Add enhancement comment
 on:
   issues:
     types:
@@ -8,15 +8,15 @@ permissions:
   issues: write
 
 jobs:
-  add-comment-to-feature-request-issues:
-    if: github.event.label.name == 'feature-request'
+  add-comment-to-enhancement-issues:
+    if: github.event.label.name == 'enhancement'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
       NUMBER: ${{ github.event.issue.number }}
       BODY: >
-        Thank you for your issue! We have categorized it as a feature request,
+        Thank you for your issue! We have categorized it as a enhancement,
         and it has been added to our backlog. In doing so, **we are not
         committing to implementing this feature at this time**, but, we will
         consider it for future releases based on community feedback and our own
