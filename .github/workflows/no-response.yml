@@ -1,10 +1,7 @@
 name: No Response
 
-# Both `issue_comment` and `scheduled` event types are required for this Action
-# to work properly.
+# Automatically close issues labeled 'more-info-needed' after 7 days of inactivity
 on:
-  issue_comment:
-    types: [created]
   schedule:
     # Schedule for five minutes after the hour, every hour
     - cron: '5 * * * *'
@@ -16,17 +13,22 @@ jobs:
   noResponse:
     runs-on: ubuntu-latest
     steps:
-      - uses: lee-dohm/no-response@v0.5.0
+      - uses: actions/stale@v9
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          closeComment: >
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          only-issue-labels: 'more-info-needed'
+          days-before-issue-stale: -1  # Skip stale state, go directly to close
+          days-before-issue-close: 7   # Close after 7 days of inactivity
+          days-before-pr-stale: -1     # Don't process PRs
+          days-before-pr-close: -1     # Don't process PRs
+          remove-stale-when-updated: true
+          close-issue-message: >
             Thank you for your issue!
 
-            We haven’t gotten a response to our questions above. With only the
-            information that is currently in the issue, we don’t have enough
-            information to take action. We’re going to close this but don’t
+            We haven't gotten a response to our questions above. With only the
+            information that is currently in the issue, we don't have enough
+            information to take action. We're going to close this but don't
             hesitate to reach out if you have or find the answers we need. If
             you answer our questions above, this issue will automatically
             reopen.
-          daysUntilClose: 7
-          responseRequiredLabel: more-info-needed
+          close-issue-reason: 'not_planned'
