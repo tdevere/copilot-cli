@@ -6,8 +6,6 @@
 - Added the current version to startup logs to aid in bug reporting
 - Removed cycling through TAB autocomplete items if an argument is present. This prevents running `/cwd /path/to/whatever`, hitting `TAB`, then seeing `/clear` autocomplete
 
-Run `npm install -g @github/copilot@latest` to update!
-
 ## 0.0.333 - 2025-10-02
 
 - Added image support! `@`-mention files to add them as input to the model. 
