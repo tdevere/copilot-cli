@@ -1,3 +1,8 @@
+## 0.0.338 - 2025-10-09
+
+- Moved Kitty protocol support behind the `COPILOT_KITTY` environment variable due to observed regressions (https://github.com/github/copilot-cli/issues/257, https://github.com/github/copilot-cli/issues/259)
+- Fixed a wrapping issue in multi-line prompts with empty lines
+
 ## 0.0.337 - 2025-10-08
 
 - Added validation for MCP server names (fixes https://github.com/github/copilot-cli/issues/110)
