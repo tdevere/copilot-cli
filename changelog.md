@@ -1,3 +1,10 @@
+## 0.0.341 - 2025-10-14
+
+- Added `/terminal-setup` command to set up multi-line input on terminals not implementing the kitty protocol
+- Fixed a bug where rejecting an MCP tool call would reject all future tool calls (fixes https://github.com/github/copilot-cli/issues/290)
+- Fixed a regression where calling `/model` with an argument did not work properly
+- Added each model's premium request multiplier to the `/model` list (currently, all our supported models are 1x)
+
 ## 0.0.340 - 2025-10-13
 
 - Removed the "Windows support is experimental" warning -- we've made some big strides in improving Windows support the last two weeks! Please continue to report any issues/feedback
