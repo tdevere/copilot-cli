@@ -1,3 +1,7 @@
+## 0.0.345 - 2025-10-18
+
+- Fixed a bug where premium requests were being overcounted for some users (https://github.com/github/copilot-cli/issues/351). If you were affected, we are working on refunding your overcharged premium requests!
+
 ## 0.0.344 - 2025-10-17
 
 - Enabled GitHub MCP server in prompt mode
