@@ -1,3 +1,8 @@
+## 0.0.346 - 2025-10-19
+
+- Fixed a bug where model sourced from configuration file was not accounted for correctly in estimating premium request usage
+  For more information, see https://github.com/github/copilot-cli/issues/351#issuecomment-3419045411
+
 ## 0.0.345 - 2025-10-18
 
 - Fixed a bug where premium requests were being overcounted for some users (https://github.com/github/copilot-cli/issues/351). If you were affected, we are working on refunding your overcharged premium requests!
