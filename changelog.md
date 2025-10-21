@@ -1,3 +1,10 @@
+## 0.0.347 - 2025-10-20
+
+- Fixed more bugs where incorrect PRU consumption stats were displayed on the frontend
+  For more information, see https://github.com/github/copilot-cli/issues/351#issuecomment-3423735333
+- Fixed a bug where pasted input content that was backspaced away was still sent to the model
+- Improved line wrapping and alignment when rendering file diffs
+
 ## 0.0.346 - 2025-10-19
 
 - Fixed a bug where model sourced from configuration file was not accounted for correctly in estimating premium request usage
