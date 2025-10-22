@@ -1,3 +1,13 @@
+## 0.0.348 - 2025-10-21
+
+- Copilot's output now streams in token-by-token! This can be disabled with `--stream off`
+- Made improvements to the memory footprint of Copilot CLI, especially when dealing with shell commands that produce very large outputs
+- Ensured we preserve comments in VSCode config files when using `/terminal-setup` (fixes https://github.com/github/copilot-cli/issues/325)
+- Bundled `node-pty` into the CLI package -- we're one step closer to implementing https://github.com/github/copilot-cli/issues/16
+- Fixed an issue where local tool calling broke sessions (fixes https://github.com/github/copilot-cli/issues/365, https://github.com/github/copilot-cli/issues/364, https://github.com/github/copilot-cli/issues/366)
+- Added our LICENSE.md to our Node package (fixes https://github.com/github/copilot-cli/issues/371)
+- Added debug logging to authentication status changes to get to the bottom of https://github.com/github/copilot-cli/issues/346
+
 ## 0.0.347 - 2025-10-20
 
 - Fixed more bugs where incorrect PRU consumption stats were displayed on the frontend
