@@ -1,3 +1,12 @@
+## 0.0.349 - 2025-10-22
+
+- The model can now call multiple tools in parallel. Each tool must be confirmed in advance. This behavior can be disabled with the `--disable-parallel-tools-execution` flag
+- Added `/quit` as an alias of `/exit`  (fixes https://github.com/github/copilot-cli/issues/357)
+- Fixed a bug where every streamed output chunk was sent back to the model as part of the conversation (fixes https://github.com/github/copilot-cli/issues/379)
+- Ensure that environment variables are expanded before running path permission checks
+- Fixed a bug where Ctrl+K deleted to the end of the visual line in the input box rather than the logical line
+- Added the temp directory to the paths that the model has access to by default (fixes https://github.com/github/copilot-cli/issues/306)
+
 ## 0.0.348 - 2025-10-21
 
 - Copilot's output now streams in token-by-token! This can be disabled with `--stream off`
