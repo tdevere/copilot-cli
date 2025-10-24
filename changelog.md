@@ -1,3 +1,13 @@
+## 0.0.351 - 2025-10-24
+
+- Improved our path detection heuristic to avoid various annoying, unnecessary permissions requests:
+	- Running many standard bash/PowerShell commands that are known to be readonly (Fixes part of https://github.com/github/sweagentd/issues/7372)
+	- Commands like `npm test -- --something` in PowerShell
+	- Shell redirections like `> some_file.txt` in paths you've already granted write permissions, `> /dev/null`, and `2>&1` (Fixes https://github.com/github/copilot-cli/issues/211)
+	- Arguments to `gh api` like `gh api /repos/user/repo/ec` (Fixes https://github.com/github/copilot-cli/issues/216)
+- Improved prompting for Sonnet 4.5 to reduce the number of intermediate markdown files left in the workspace
+- 👀 ...see you at [GitHub Universe](https://githubuniverse.com/)!
+
 ## 0.0.350 - 2025-10-23
 
 - To conserve context window space, we've limited the list of tools available to the default GitHub MCP server. In our tests, the model will use the [GitHub CLI, `gh`](https://github.com/cli/cli) (if installed) in lieu of missing MCP tools. We added an `--enable-all-github-mcp-tools` if you wish to turn on all available tools. 
