@@ -1,3 +1,8 @@
+## 0.0.352 - 2025-10-27
+
+- Improve handling of MCP tools containing slashes
+- Improve error message from /model <model> command when using an unsupported model
+
 ## 0.0.351 - 2025-10-24
 
 - Improved our path detection heuristic to avoid various annoying, unnecessary permissions requests:
