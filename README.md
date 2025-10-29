@@ -74,6 +74,31 @@ Each time you submit a prompt to GitHub Copilot CLI, your monthly quota of premi
 For more information about how to use the GitHub Copilot CLI, see [our official documentation](https://docs.github.com/copilot/concepts/agents/about-copilot-cli).
 
 
+## 🤖 Auto-Approval Wrapper (New!)
+
+We've added a powerful wrapper that allows continuous auto-prompting without manual approvals. Perfect for autonomous tasks!
+
+### Quick Start
+
+```bash
+# Install the wrapper globally
+npm install -g .
+
+# Run with auto-approval
+copilot-auto "Create a REST API with tests"
+
+# With safety limits
+copilot-auto --max-iterations 100 --deny-tool "shell(git push)" "Refactor the codebase"
+```
+
+### Key Features
+- ✅ **Fully autonomous**: No approval prompts
+- ✅ **Safety limits**: Max iterations and duration controls
+- ✅ **Tool filtering**: Deny dangerous operations
+- ✅ **Configurable**: JSON config or CLI arguments
+
+See [AUTO-WRAPPER-README.md](./AUTO-WRAPPER-README.md) for complete documentation.
+
 ## 📢 Feedback and Participation
 
 We're excited to have you join us early in the Copilot CLI journey.

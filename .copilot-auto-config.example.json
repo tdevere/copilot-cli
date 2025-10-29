@@ -1,0 +1,14 @@
+{
+  "maxIterations": 50,
+  "maxDuration": 1800000,
+  "allowAllTools": true,
+  "allowAllPaths": false,
+  "autoApprove": true,
+  "allowedTools": [],
+  "deniedTools": [
+    "shell(rm -rf *)",
+    "shell(git push)",
+    "shell(npm publish)"
+  ],
+  "model": "claude-sonnet-4.5"
+}

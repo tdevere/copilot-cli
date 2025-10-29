@@ -1,0 +1,24 @@
+{
+  "name": "copilot-cli-auto",
+  "version": "1.0.0",
+  "description": "Auto-approval wrapper for GitHub Copilot CLI",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "copilot-auto": "./index.js"
+  },
+  "scripts": {
+    "quickstart": "node quickstart.js",
+    "examples": "node examples.js",
+    "test": "node run-tests.js",
+    "install-global": "npm install -g .",
+    "link": "npm link",
+    "uninstall": "npm uninstall -g copilot-cli-auto"
+  },
+  "keywords": ["copilot", "cli", "automation", "wrapper", "ai"],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
