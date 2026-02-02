@@ -99,6 +99,30 @@ copilot-auto --max-iterations 100 --deny-tool "shell(git push)" "Refactor the co
 
 See [AUTO-WRAPPER-README.md](./AUTO-WRAPPER-README.md) for complete documentation.
 
+### Local Tool Synthesis (Experimental, Opt-in)
+
+**⚠️ Disabled by default** - Requires explicit activation
+
+The wrapper supports local tool synthesis for creating custom tools on-demand without external dependencies:
+
+```bash
+# Enable local tool synthesis with MCP prevention
+copilot-auto --enable-local-tool-synthesis --no-mcp "Build custom tooling"
+
+# Or use environment variables
+export COPILOT_LOCAL_TOOL_SYNTHESIS=1
+export COPILOT_NO_MCP=1
+copilot-auto "Create specialized tools"
+```
+
+**Key Points:**
+- ❌ **Never uses MCP servers** when `--no-mcp` flag is set
+- 📦 **Creates tool scaffolds locally** in `tools/` directory
+- 🔒 **Opt-in only** - No behavior change unless explicitly enabled
+- 🛡️ **Safe by default** - Scaffolds fail with clear implementation instructions
+
+See [docs/local-tool-synthesis-policy.md](./docs/local-tool-synthesis-policy.md) for full documentation.
+
 ## 📢 Feedback and Participation
 
 We're excited to have you join us early in the Copilot CLI journey.
