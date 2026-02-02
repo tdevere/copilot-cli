@@ -96,6 +96,18 @@ copilot-auto --max-iterations 100 --deny-tool "shell(git push)" "Refactor the co
 - ✅ **Safety limits**: Max iterations and duration controls
 - ✅ **Tool filtering**: Deny dangerous operations
 - ✅ **Configurable**: JSON config or CLI arguments
+- ✅ **Session management**: Continue and resume previous sessions (opt-in)
+
+### Session Continuation
+Resume your work across sessions with repo-scoped safety:
+
+```bash
+# Continue your most recent session
+copilot-auto --continue "Add more tests"
+
+# Resume a specific session
+copilot-auto --resume "Complete the feature"
+```
 
 See [AUTO-WRAPPER-README.md](./AUTO-WRAPPER-README.md) for complete documentation.
 

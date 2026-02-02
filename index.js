@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 
-import { spawn } from 'child_process';
-import { readFile, writeFile, mkdir, access } from 'fs/promises';
+import { spawn, execSync } from 'child_process';
+import { readFile, writeFile, mkdir, access, readdir, stat } from 'fs/promises';
 import { homedir } from 'os';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { constants } from 'fs';
 
 const CONFIG_FILE = join(homedir(), '.copilot-auto-config.json');
 const TOOLS_DIR = 'tools';
 const MANIFEST_FILE = join(TOOLS_DIR, 'manifest.json');
+const SESSION_STATE_DIR = '.copilot-auto';
+const SESSION_STATE_FILE = 'session-state.json';
+const COPILOT_SESSION_DIR = join(homedir(), '.copilot', 'session-state');
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -22,8 +25,131 @@ const DEFAULT_CONFIG = {
   deniedTools: [],
   model: 'claude-sonnet-4.5',
   enableLocalToolSynthesis: false,
-  noMcp: false
+  noMcp: false,
+  session: {
+    enabled: false,
+    mode: 'continue'
+  }
 };
+
+// Session Management Module
+class SessionManager {
+  constructor() {
+    this.repoRoot = this.getRepoRoot();
+    this.stateDir = join(this.repoRoot, SESSION_STATE_DIR);
+    this.stateFile = join(this.stateDir, SESSION_STATE_FILE);
+  }
+
+  getRepoRoot() {
+    try {
+      const result = execSync('git rev-parse --show-toplevel', { 
+        encoding: 'utf8', 
+        stdio: ['pipe', 'pipe', 'pipe'] 
+      });
+      return result.trim();
+    } catch {
+      return process.cwd();
+    }
+  }
+
+  async ensureStateDirectory() {
+    try {
+      await mkdir(this.stateDir, { recursive: true });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
+  }
+
+  async loadState() {
+    try {
+      await access(this.stateFile, constants.F_OK);
+      const data = await readFile(this.stateFile, 'utf8');
+      return JSON.parse(data);
+    } catch {
+      return {
+        repoRoot: this.repoRoot,
+        lastSessionId: null,
+        lastUsedAt: null,
+        copilotVersion: null
+      };
+    }
+  }
+
+  async saveState(sessionId = null) {
+    await this.ensureStateDirectory();
+    const state = {
+      repoRoot: this.repoRoot,
+      lastSessionId: sessionId,
+      lastUsedAt: new Date().toISOString(),
+      copilotVersion: await this.getCopilotVersion()
+    };
+    await writeFile(this.stateFile, JSON.stringify(state, null, 2), 'utf8');
+    return state;
+  }
+
+  async getCopilotVersion() {
+    try {
+      const result = execSync('copilot --version', { 
+        encoding: 'utf8', 
+        stdio: ['pipe', 'pipe', 'pipe'] 
+      });
+      return result.trim();
+    } catch {
+      return null;
+    }
+  }
+
+  async findRecentSession() {
+    try {
+      await access(COPILOT_SESSION_DIR, constants.F_OK);
+      const entries = await readdir(COPILOT_SESSION_DIR);
+      
+      const sessions = [];
+      for (const entry of entries) {
+        const sessionPath = join(COPILOT_SESSION_DIR, entry);
+        const stats = await stat(sessionPath);
+        if (stats.isDirectory()) {
+          sessions.push({
+            id: entry,
+            path: sessionPath,
+            mtime: stats.mtime
+          });
+        }
+      }
+      
+      // Sort by modification time (most recent first)
+      sessions.sort((a, b) => b.mtime - a.mtime);
+      
+      // Try to find a session for this repo by checking plan.md content
+      for (const session of sessions) {
+        const planPath = join(session.path, 'plan.md');
+        try {
+          await access(planPath, constants.F_OK);
+          const planContent = await readFile(planPath, 'utf8');
+          if (planContent.includes(this.repoRoot) || 
+              planContent.toLowerCase().includes(this.repoRoot.toLowerCase().replace(/\\/g, '/'))) {
+            return session.id;
+          }
+        } catch {
+          // No plan.md or can't read, continue
+        }
+      }
+      
+      // If no repo-specific session found, return most recent
+      return sessions.length > 0 ? sessions[0].id : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getLastSessionId() {
+    const state = await this.loadState();
+    if (state.lastSessionId) {
+      return state.lastSessionId;
+    }
+    return await this.findRecentSession();
+  }
+}
 
 // Tool Synthesis Module
 class ToolSynthesizer {
@@ -167,6 +293,10 @@ class CopilotAutoWrapper {
     this.tokenCount = 0;
     this.sessionActive = false;
     this.toolSynthesizer = new ToolSynthesizer();
+    this.sessionManager = new SessionManager();
+    this.sessionMode = null;
+    this.resumeSessionId = null;
+    this.currentSessionId = null;
   }
 
   async loadConfig() {
@@ -210,6 +340,20 @@ class CopilotAutoWrapper {
   buildCopilotCommand(userPrompt) {
     const args = [];
     
+    // Handle session flags first
+    if (this.sessionMode === 'continue' && this.config.session.enabled) {
+      args.push('--continue');
+      console.log('📝 Continuing previous session');
+    } else if (this.sessionMode === 'resume' && this.config.session.enabled) {
+      args.push('--resume');
+      if (this.resumeSessionId) {
+        args.push(this.resumeSessionId);
+        console.log(`📝 Resuming session: ${this.resumeSessionId}`);
+      } else {
+        console.log('📝 Resume mode: interactive picker');
+      }
+    }
+    
     // Add model
     if (this.config.model) {
       args.push('--model', this.config.model);
@@ -245,10 +389,30 @@ class CopilotAutoWrapper {
   async runInteractive(initialPrompt) {
     await this.loadConfig();
     
+    // Set up session if needed
+    if (this.config.session.enabled) {
+      if (this.sessionMode === 'continue') {
+        const sessionId = await this.sessionManager.getLastSessionId();
+        if (sessionId) {
+          this.resumeSessionId = sessionId;
+          console.log(`✓ Found session to continue: ${sessionId.substring(0, 8)}...`);
+        }
+      } else if (this.sessionMode === 'resume' && !this.resumeSessionId) {
+        const sessionId = await this.sessionManager.getLastSessionId();
+        if (sessionId) {
+          this.resumeSessionId = sessionId;
+          console.log(`✓ Found session to resume: ${sessionId.substring(0, 8)}...`);
+        }
+      }
+    }
+    
     console.log('🤖 Starting Copilot CLI with auto-approval');
     console.log(`📊 Limits: ${this.config.maxIterations} iterations, ${this.config.maxDuration / 1000}s duration`);
     console.log(`🔧 Allow all tools: ${this.config.allowAllTools}`);
     console.log(`🔧 Allow all paths: ${this.config.allowAllPaths}`);
+    if (this.config.session.enabled) {
+      console.log(`📂 Session management: enabled`);
+    }
     if (this.config.enableLocalToolSynthesis) {
       console.log(`🔬 Local tool synthesis: enabled`);
     }
@@ -275,6 +439,12 @@ class CopilotAutoWrapper {
       
       this.iterations++;
       
+      // Extract session ID from output (format: "Session folder: ~/.copilot/session-state/SESSION_ID")
+      const sessionMatch = output.match(/Session folder:.*?session-state[\/\\]([a-f0-9-]+)/i);
+      if (sessionMatch) {
+        this.currentSessionId = sessionMatch[1];
+      }
+      
       // Check if we need to respond to any prompts
       // The CLI with --allow-all-tools shouldn't prompt, but just in case
       if (this.config.autoApprove) {
@@ -296,11 +466,23 @@ class CopilotAutoWrapper {
       process.stderr.write(data);
     });
 
-    copilot.on('close', (code) => {
+    copilot.on('close', async (code) => {
       this.sessionActive = false;
       console.log(`\n✓ Copilot CLI exited with code ${code}`);
       console.log(`📊 Total iterations: ${this.iterations}`);
       console.log(`⏱  Duration: ${((Date.now() - this.startTime) / 1000).toFixed(1)}s`);
+      
+      if (this.config.session.enabled) {
+        try {
+          await this.sessionManager.saveState(this.currentSessionId);
+          console.log(`📂 Session state saved to ${this.sessionManager.stateFile}`);
+          if (this.currentSessionId) {
+            console.log(`📝 Session ID: ${this.currentSessionId.substring(0, 8)}...`);
+          }
+        } catch (error) {
+          console.error(`⚠️  Failed to save session state: ${error.message}`);
+        }
+      }
     });
 
     copilot.on('error', (error) => {
@@ -338,11 +520,45 @@ class CopilotAutoWrapper {
     
     return new Promise((resolve, reject) => {
       const copilot = spawn(command, [], {
-        stdio: 'inherit',
+        stdio: ['pipe', 'pipe', 'pipe'],
         shell: true
       });
+      
+      // Capture stdout to extract session ID and display output
+      copilot.stdout.on('data', (data) => {
+        const output = data.toString();
+        process.stdout.write(output);
+        
+        // Extract session ID from output
+        const sessionMatch = output.match(/Session folder:.*?session-state[\/\\]([a-f0-9-]+)/i);
+        if (sessionMatch) {
+          this.currentSessionId = sessionMatch[1];
+        }
+      });
+      
+      copilot.stderr.on('data', (data) => {
+        process.stderr.write(data);
+      });
 
-      copilot.on('close', (code) => {
+      copilot.on('close', async (code) => {
+        // Save session state if enabled
+        if (this.config.session.enabled) {
+          try {
+            // If we didn't capture session ID from output, find it by timestamp
+            if (!this.currentSessionId) {
+              this.currentSessionId = await this.sessionManager.findRecentSession();
+            }
+            
+            await this.sessionManager.saveState(this.currentSessionId);
+            console.log(`\n📂 Session state saved to ${this.sessionManager.stateFile}`);
+            if (this.currentSessionId) {
+              console.log(`📝 Session ID: ${this.currentSessionId.substring(0, 8)}...`);
+            }
+          } catch (error) {
+            console.error(`⚠️  Failed to save session state: ${error.message}`);
+          }
+        }
+        
         if (code === 0) {
           resolve();
         } else {
@@ -378,6 +594,12 @@ Options:
   --enable-local-tool-synthesis   Enable local tool synthesis (default: false)
   --no-mcp                        Prevent all MCP server usage (default: false)
 
+Session Management:
+  -C, --continue                  Continue the most recent session for this repo
+  --resume [sessionId]            Resume a specific session (or pick interactively)
+  --enable-session                Enable session management (default: false)
+  --session <name>                Session name/group identifier
+
 Environment Variables:
   COPILOT_LOCAL_TOOL_SYNTHESIS=1  Enable local tool synthesis
   COPILOT_NO_MCP=1                Prevent MCP server usage
@@ -388,6 +610,12 @@ Examples:
 
   # Direct mode with a prompt
   copilot-auto "Create a new React component"
+  
+  # Continue previous session
+  copilot-auto --continue "Add more tests to the component"
+  
+  # Resume a specific session
+  copilot-auto --resume "Complete the user authentication feature"
 
   # With custom limits
   copilot-auto --max-iterations 100 --max-duration 3600000
@@ -411,7 +639,11 @@ Configuration File:
     "deniedTools": [],
     "model": "claude-sonnet-4.5",
     "enableLocalToolSynthesis": false,
-    "noMcp": false
+    "noMcp": false,
+    "session": {
+      "enabled": false,
+      "mode": "continue"
+    }
   }
 `);
 }
@@ -434,6 +666,8 @@ async function main() {
   const config = {};
   let prompt = null;
   let mode = null;
+  let sessionMode = null;
+  let resumeSessionId = null;
   
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -467,6 +701,28 @@ async function main() {
       case '--no-mcp':
         config.noMcp = true;
         break;
+      case '-C':
+      case '--continue':
+        config.session = config.session || {};
+        config.session.enabled = true;
+        sessionMode = 'continue';
+        break;
+      case '--resume':
+        config.session = config.session || {};
+        config.session.enabled = true;
+        sessionMode = 'resume';
+        if (i + 1 < args.length && !args[i + 1].startsWith('-')) {
+          resumeSessionId = args[++i];
+        }
+        break;
+      case '--enable-session':
+        config.session = config.session || {};
+        config.session.enabled = true;
+        break;
+      case '--session':
+        config.session = config.session || {};
+        config.session.name = args[++i];
+        break;
       default:
         if (!arg.startsWith('-')) {
           prompt = arg;
@@ -475,6 +731,11 @@ async function main() {
   }
   
   const wrapper = new CopilotAutoWrapper(config);
+  
+  if (sessionMode) {
+    wrapper.sessionMode = sessionMode;
+    wrapper.resumeSessionId = resumeSessionId;
+  }
   
   // Determine mode if not specified
   if (!mode) {

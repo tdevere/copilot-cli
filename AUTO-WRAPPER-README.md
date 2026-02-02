@@ -9,6 +9,7 @@ This wrapper enables continual auto-prompts for GitHub Copilot CLI without requi
 - ✅ **Tool filtering**: Deny specific dangerous operations
 - ✅ **Two modes**: Interactive and direct execution
 - ✅ **Configurable**: JSON config file or CLI arguments
+- ✅ **Session management**: Continue and resume previous sessions (opt-in)
 
 ## Installation
 
@@ -142,6 +143,120 @@ copilot-auto "Your task here"
 ```
 Executes a single task and exits when complete.
 
+## Session Management
+
+Session management allows you to continue or resume previous Copilot sessions within a repository. This is an **opt-in** feature that must be explicitly enabled.
+
+### How It Works
+
+When session management is enabled, `copilot-auto` stores a lightweight pointer to the most recent session in `.copilot-auto/session-state.json` (gitignored) in your repository root. This enables repo-scoped session tracking, avoiding the issue of accidentally resuming sessions from different repositories.
+
+The state file contains only:
+- Repository root path
+- Last session ID (if available)
+- Timestamp of last use
+- Copilot CLI version
+
+**Important**: No sensitive data, prompts, or tool outputs are stored locally by `copilot-auto`. Session data is managed by the official Copilot CLI.
+
+### Enabling Session Management
+
+#### Option 1: Config File
+Add to your `~/.copilot-auto-config.json`:
+```json
+{
+  "session": {
+    "enabled": true,
+    "mode": "continue"
+  }
+}
+```
+
+#### Option 2: CLI Flags
+Use `--enable-session` or use `--continue`/`--resume` flags directly (which auto-enable it):
+```bash
+copilot-auto --enable-session "Your task"
+```
+
+### Continue Previous Session
+
+Resume the most recent session for this repository:
+```bash
+copilot-auto --continue "Add more tests"
+```
+
+Short form:
+```bash
+copilot-auto -C "Continue working on the feature"
+```
+
+### Resume Specific Session
+
+Resume a specific session by ID or use interactive picker:
+```bash
+# Interactive picker mode
+copilot-auto --resume "Complete authentication"
+
+# With specific session ID (if you know it)
+copilot-auto --resume <session-id> "Continue this work"
+```
+
+### Repo-Scoped Safety
+
+The wrapper implements repo-scoped session tracking to prevent "wrong repo session" issues:
+
+1. When `--continue` is used, the wrapper looks for the last session associated with the current repository
+2. It searches `.copilot-auto/session-state.json` for a saved session ID
+3. If not found, it scans `~/.copilot/session-state/` for sessions mentioning this repository path
+4. Only then does it fall back to the default Copilot CLI behavior
+
+This approach minimizes the risk of accidentally continuing a session from a different repository with the same branch name.
+
+### Session State Storage
+
+The repo-local session state is stored at:
+```
+<repo-root>/.copilot-auto/session-state.json
+```
+
+This file is automatically gitignored. To clear session history:
+```bash
+rm -rf .copilot-auto/
+```
+
+### Example Workflows
+
+#### Workflow 1: Multi-day feature development
+```bash
+# Day 1: Start feature
+copilot-auto --enable-session "Create user authentication system"
+
+# Day 2: Continue where you left off
+copilot-auto --continue "Add password reset functionality"
+
+# Day 3: Keep building
+copilot-auto -C "Add OAuth integration"
+```
+
+#### Workflow 2: Working across multiple repos
+```bash
+cd ~/project-a
+copilot-auto --continue "Add tests"  # Continues project-a session
+
+cd ~/project-b
+copilot-auto --continue "Refactor"   # Continues project-b session (not project-a!)
+```
+
+### Disabling Session Management
+
+Sessions are **disabled by default**. To explicitly disable if enabled in config:
+```bash
+# Session flags simply aren't used
+copilot-auto "Your task"  # Fresh session, no continuation
+```
+
+Or remove the `session` configuration from your config file.
+
 ## Troubleshooting
 
 ### "copilot: command not found"
@@ -172,6 +287,8 @@ copilot-auto --deny-tool "shell(dangerous-command)"
 | `allowAllPaths` | boolean | false | Allow access to all file paths |
 | `deniedTools` | array | [] | List of tools to deny |
 | `model` | string | "claude-sonnet-4.5" | AI model to use |
+| `session.enabled` | boolean | false | Enable session management features |
+| `session.mode` | string | "continue" | Default session mode ("continue" or "resume") |
 
 ## Safety Recommendations
 

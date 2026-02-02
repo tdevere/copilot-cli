@@ -3,3 +3,7 @@ test-output.txt
 *.log
 .DS_Store
 .copilot-auto-config.json
+SSH_PCAP_Test_Report.md
+.copilot-auto/
+tools/har-analyzer/
+*.har
