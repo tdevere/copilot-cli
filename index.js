@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 
 import { spawn } from 'child_process';
-import { readFile } from 'fs/promises';
+import { readFile, writeFile, mkdir, access } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
+import { constants } from 'fs';
 
 const CONFIG_FILE = join(homedir(), '.copilot-auto-config.json');
+const TOOLS_DIR = 'tools';
+const MANIFEST_FILE = join(TOOLS_DIR, 'manifest.json');
 
 // Default configuration
 const DEFAULT_CONFIG = {
@@ -17,8 +20,144 @@ const DEFAULT_CONFIG = {
   autoApprove: true,
   allowedTools: [],
   deniedTools: [],
-  model: 'claude-sonnet-4.5'
+  model: 'claude-sonnet-4.5',
+  enableLocalToolSynthesis: false,
+  noMcp: false
 };
+
+// Tool Synthesis Module
+class ToolSynthesizer {
+  constructor() {
+    this.manifestPath = MANIFEST_FILE;
+  }
+
+  // Validate and sanitize tool name
+  validateToolName(name) {
+    const sanitized = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    if (!/^[a-z][a-z0-9-]*$/.test(sanitized)) {
+      throw new Error(`Invalid tool name: ${name}`);
+    }
+    return sanitized;
+  }
+
+  async ensureToolsDirectory() {
+    try {
+      await mkdir(TOOLS_DIR, { recursive: true });
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+    }
+  }
+
+  async loadManifest() {
+    try {
+      await access(this.manifestPath, constants.F_OK);
+      const data = await readFile(this.manifestPath, 'utf8');
+      return JSON.parse(data);
+    } catch (error) {
+      return {
+        version: '1.0.0',
+        tools: {}
+      };
+    }
+  }
+
+  async saveManifest(manifest) {
+    await writeFile(this.manifestPath, JSON.stringify(manifest, null, 2), 'utf8');
+  }
+
+  async toolExists(toolName) {
+    const manifest = await this.loadManifest();
+    return toolName in manifest.tools;
+  }
+
+  async scaffoldTool(toolName, description = 'Auto-generated tool scaffold') {
+    await this.ensureToolsDirectory();
+    
+    const sanitizedName = this.validateToolName(toolName);
+    
+    // Check if tool already exists
+    if (await this.toolExists(sanitizedName)) {
+      console.log(`ℹ Tool '${sanitizedName}' already exists. Skipping scaffold.`);
+      return sanitizedName;
+    }
+
+    const toolDir = join(TOOLS_DIR, sanitizedName);
+    const toolSrcDir = join(toolDir, 'src');
+    
+    // Create directories
+    await mkdir(toolDir, { recursive: true });
+    await mkdir(toolSrcDir, { recursive: true });
+
+    // Create tool.md specification
+    const toolMdContent = `# Tool: ${sanitizedName}
+
+## Status
+**Scaffold** - Implementation needed
+
+## Purpose
+${description}
+
+## Parameters
+[Expected input parameters and their types]
+
+## Implementation Notes
+This is a scaffolded tool. To complete implementation:
+1. Edit \`src/index.js\` with actual functionality
+2. Add tests in \`tests/\` directory
+3. Update status in \`tools/manifest.json\` to "implemented"
+4. Test thoroughly before use
+
+## Usage Example
+[How to invoke this tool once implemented]
+
+Created: ${new Date().toISOString()}
+`;
+    await writeFile(join(toolDir, 'tool.md'), toolMdContent, 'utf8');
+
+    // Create stub implementation
+    const stubContent = `#!/usr/bin/env node
+
+/**
+ * Auto-generated tool scaffold
+ * Tool: ${sanitizedName}
+ * Created: ${new Date().toISOString()}
+ * 
+ * TODO: Implement actual functionality
+ */
+
+console.error('Tool scaffold created locally. Implement me.');
+console.error('Edit: tools/${sanitizedName}/src/index.js');
+process.exit(1);
+`;
+    await writeFile(join(toolSrcDir, 'index.js'), stubContent, 'utf8');
+
+    // Update manifest
+    const manifest = await this.loadManifest();
+    manifest.tools[sanitizedName] = {
+      name: sanitizedName,
+      description: description,
+      command: 'node',
+      args: [`tools/${sanitizedName}/src/index.js`],
+      schema: {
+        parameters: {
+          type: 'object',
+          properties: {},
+          required: []
+        }
+      },
+      createdAt: new Date().toISOString(),
+      status: 'scaffold'
+    };
+    await this.saveManifest(manifest);
+
+    console.log(`\n✓ Tool scaffold created: ${sanitizedName}`);
+    console.log(`  📄 Spec: ${join(toolDir, 'tool.md')}`);
+    console.log(`  💻 Code: ${join(toolSrcDir, 'index.js')}`);
+    console.log(`  📋 Registry: ${this.manifestPath}\n`);
+
+    return sanitizedName;
+  }
+}
 
 class CopilotAutoWrapper {
   constructor(config = {}) {
@@ -27,6 +166,7 @@ class CopilotAutoWrapper {
     this.startTime = Date.now();
     this.tokenCount = 0;
     this.sessionActive = false;
+    this.toolSynthesizer = new ToolSynthesizer();
   }
 
   async loadConfig() {
@@ -37,6 +177,17 @@ class CopilotAutoWrapper {
       console.log('✓ Loaded configuration from', CONFIG_FILE);
     } catch (error) {
       console.log('ℹ Using default configuration (no config file found)');
+    }
+    
+    // Apply environment variable overrides
+    if (process.env.COPILOT_LOCAL_TOOL_SYNTHESIS) {
+      const val = process.env.COPILOT_LOCAL_TOOL_SYNTHESIS.toLowerCase();
+      this.config.enableLocalToolSynthesis = ['1', 'true', 'yes', 'on'].includes(val);
+    }
+    
+    if (process.env.COPILOT_NO_MCP) {
+      const val = process.env.COPILOT_NO_MCP.toLowerCase();
+      this.config.noMcp = ['1', 'true', 'yes', 'on'].includes(val);
     }
   }
 
@@ -98,6 +249,12 @@ class CopilotAutoWrapper {
     console.log(`📊 Limits: ${this.config.maxIterations} iterations, ${this.config.maxDuration / 1000}s duration`);
     console.log(`🔧 Allow all tools: ${this.config.allowAllTools}`);
     console.log(`🔧 Allow all paths: ${this.config.allowAllPaths}`);
+    if (this.config.enableLocalToolSynthesis) {
+      console.log(`🔬 Local tool synthesis: enabled`);
+    }
+    if (this.config.noMcp) {
+      console.log(`🚫 MCP servers: disabled`);
+    }
     console.log('');
 
     const args = this.buildCopilotCommand(initialPrompt);
@@ -208,16 +365,22 @@ GitHub Copilot CLI Auto-Approval Wrapper
 Usage: copilot-auto [options] [prompt]
 
 Options:
-  -h, --help              Show this help message
-  -v, --version           Show version
-  -c, --config <file>     Use custom config file
-  --max-iterations <n>    Maximum number of iterations (default: 50)
-  --max-duration <ms>     Maximum duration in milliseconds (default: 1800000)
-  --model <model>         AI model to use (default: claude-sonnet-4.5)
-  --allow-all-paths       Allow access to all file paths
-  --deny-tool <tool>      Deny specific tool (can be used multiple times)
-  --interactive           Start in interactive mode (default if no prompt given)
-  --direct                Run prompt and exit (default if prompt given)
+  -h, --help                      Show this help message
+  -v, --version                   Show version
+  -c, --config <file>             Use custom config file
+  --max-iterations <n>            Maximum number of iterations (default: 50)
+  --max-duration <ms>             Maximum duration in milliseconds (default: 1800000)
+  --model <model>                 AI model to use (default: claude-sonnet-4.5)
+  --allow-all-paths               Allow access to all file paths
+  --deny-tool <tool>              Deny specific tool (can be used multiple times)
+  --interactive                   Start in interactive mode (default if no prompt given)
+  --direct                        Run prompt and exit (default if prompt given)
+  --enable-local-tool-synthesis   Enable local tool synthesis (default: false)
+  --no-mcp                        Prevent all MCP server usage (default: false)
+
+Environment Variables:
+  COPILOT_LOCAL_TOOL_SYNTHESIS=1  Enable local tool synthesis
+  COPILOT_NO_MCP=1                Prevent MCP server usage
 
 Examples:
   # Interactive mode with auto-approval
@@ -234,6 +397,9 @@ Examples:
 
   # Deny dangerous operations
   copilot-auto --deny-tool "shell(rm *)" --deny-tool "shell(git push)"
+  
+  # Enable local tool synthesis with MCP prevention (experimental)
+  copilot-auto --enable-local-tool-synthesis --no-mcp "Create custom tools"
 
 Configuration File:
   Create ~/.copilot-auto-config.json with:
@@ -243,7 +409,9 @@ Configuration File:
     "allowAllTools": true,
     "allowAllPaths": false,
     "deniedTools": [],
-    "model": "claude-sonnet-4.5"
+    "model": "claude-sonnet-4.5",
+    "enableLocalToolSynthesis": false,
+    "noMcp": false
   }
 `);
 }
@@ -292,6 +460,12 @@ async function main() {
         break;
       case '--direct':
         mode = 'direct';
+        break;
+      case '--enable-local-tool-synthesis':
+        config.enableLocalToolSynthesis = true;
+        break;
+      case '--no-mcp':
+        config.noMcp = true;
         break;
       default:
         if (!arg.startsWith('-')) {
